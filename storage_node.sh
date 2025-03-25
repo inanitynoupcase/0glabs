@@ -10,7 +10,9 @@ show_menu() {
     echo "6. Set Miner Key"
     echo "7. Node Run & Show Logs"
     echo "8. Install Snapshot"
-    echo "9. Exit"
+    echo "9. Install Second 0g-storage-node"
+    echo "10. Manage Second Node"
+    echo "11. Exit"
     echo "============================"
 }
 
@@ -166,9 +168,122 @@ install_snapshot() {
     sudo systemctl restart zgs && tail -f ~/0g-storage-node/run/log/zgs.log.$(TZ=UTC date +%Y-%m-%d)
 }
 
+install_second_node() {
+    echo "Installing second 0g-storage-node..."
+    # Create a different directory for the second node
+    rm -r $HOME/0g-storage-node2
+    sudo apt-get update
+    sudo apt-get install -y cargo git clang cmake build-essential openssl pkg-config libssl-dev
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    source $HOME/.cargo/env
+    git clone -b v0.8.7 https://github.com/0glabs/0g-storage-node.git $HOME/0g-storage-node2
+    cd $HOME/0g-storage-node2
+    git stash
+    git fetch --all --tags
+    git checkout 74074df
+    git submodule update --init
+    cargo build --release
+    
+    # Create run directory and config if they don't exist
+    mkdir -p $HOME/0g-storage-node2/run
+    rm -rf $HOME/0g-storage-node2/run/config.toml
+    curl -o $HOME/0g-storage-node2/run/config.toml https://raw.githubusercontent.com/zstake-xyz/test/refs/heads/main/0g_storage_turbo.toml
+    
+    # Use a different port for the second node
+    sed -i 's/port = 44444/port = 44445/g' $HOME/0g-storage-node2/run/config.toml
+    sed -i 's/metrics_port = 14444/metrics_port = 14445/g' $HOME/0g-storage-node2/run/config.toml
+
+    # Ask for second node miner key
+    echo "Please enter your Miner Key for the second node:"
+    read miner_key2
+    sed -i "s|^miner_key = .*|miner_key = \"$miner_key2\"|g" $HOME/0g-storage-node2/run/config.toml
+    
+    # Create a different systemd service for the second node
+    sudo tee /etc/systemd/system/zgs2.service > /dev/null <<EOF
+[Unit]
+Description=ZGS Node 2
+After=network.target
+
+[Service]
+User=$USER
+WorkingDirectory=$HOME/0g-storage-node2/run
+ExecStart=$HOME/0g-storage-node2/target/release/zgs_node --config $HOME/0g-storage-node2/run/config.toml
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    sudo systemctl daemon-reload
+    sudo systemctl enable zgs2
+    echo "Second node installation completed. You can start the service with 'sudo systemctl start zgs2'."
+}
+
+manage_second_node() {
+    echo "===== Second Node Management ====="
+    echo "1. Start second node"
+    echo "2. Stop second node"
+    echo "3. Show second node logs"
+    echo "4. Install snapshot for second node"
+    echo "5. Update second node"
+    echo "6. Set Miner Key for second node"
+    echo "7. Back to main menu"
+    
+    read -p "Select an option (1-7): " second_node_choice
+    case $second_node_choice in
+        1) 
+            echo "Starting second node..."
+            sudo systemctl start zgs2
+            ;;
+        2) 
+            echo "Stopping second node..."
+            sudo systemctl stop zgs2
+            ;;
+        3) 
+            echo "Displaying second node logs..."
+            tail -f ~/0g-storage-node2/run/log/zgs.log.$(TZ=UTC date +%Y-%m-%d)
+            ;;
+        4) 
+            echo "Installing snapshot for second node..."
+            sudo systemctl stop zgs2
+            sudo apt-get install wget lz4 aria2 pv -y
+            cd $HOME
+            rm -f storage_0gchain_snapshot2.lz4
+            aria2c -x 16 -s 16 -k 1M https://josephtran.co/storage_0gchain_snapshot.lz4 -o storage_0gchain_snapshot2.lz4
+            rm -rf $HOME/0g-storage-node2/run/db
+            lz4 -c -d storage_0gchain_snapshot2.lz4 | pv | tar -x -C $HOME/0g-storage-node2/run
+            sudo systemctl restart zgs2
+            ;;
+        5) 
+            echo "Updating second node..."
+            sudo systemctl stop zgs2
+            cp $HOME/0g-storage-node2/run/config.toml $HOME/0g-storage-node2/run/config.toml.backup
+            cd $HOME/0g-storage-node2
+            git stash
+            git fetch --all --tags
+            git checkout 74074df
+            git submodule update --init
+            cargo build --release
+            cp $HOME/0g-storage-node2/run/config.toml.backup $HOME/0g-storage-node2/run/config.toml
+            sudo systemctl daemon-reload
+            sudo systemctl enable zgs2
+            sudo systemctl start zgs2
+            ;;
+        6)
+            echo "Please enter your Miner Key for the second node:"
+            read miner_key2
+            sed -i "s|^miner_key = .*|miner_key = \"$miner_key2\"|g" $HOME/0g-storage-node2/run/config.toml
+            sudo systemctl restart zgs2
+            ;;
+        7) return ;;
+        *) echo "Invalid option. Please try again." ;;
+    esac
+}
+
 while true; do
     show_menu
-    read -p "Select an option (1-9): " choice
+    read -p "Select an option (1-11): " choice
     case $choice in
         1) install_node ;;
         2) update_node ;;
@@ -178,7 +293,9 @@ while true; do
         6) set_miner_key ;;
         7) show_logs ;;
         8) install_snapshot ;;
-        9) echo "Exiting..."; exit 0 ;;
+        9) install_second_node ;;
+        10) manage_second_node ;;
+        11) echo "Exiting..."; exit 0 ;;
         *) echo "Invalid option. Please try again." ;;
     esac
     echo ""
