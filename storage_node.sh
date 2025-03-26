@@ -380,11 +380,38 @@ EOF
         8)
             # Check proxy status
             echo "Checking proxy status..."
-            echo "Current environment proxy settings:"
-            echo "http_proxy: ${http_proxy}"
-            echo "https_proxy: ${https_proxy}"
-            echo "Testing proxy connection..."
-            curl -s -o /dev/null -w "Connection test result: %{http_code}\n" --proxy $http_proxy https://evmrpc-testnet.0g.ai
+            
+            # Check if proxy is configured
+            if [ -f /usr/local/bin/node2-proxy-wrapper.sh ]; then
+                # Extract proxy URL from the wrapper script
+                PROXY_URL=$(grep "export http_proxy=" /usr/local/bin/node2-proxy-wrapper.sh | cut -d "'" -f 2)
+                
+                echo "Proxy is configured in wrapper script:"
+                echo "Proxy URL: $PROXY_URL"
+                
+                echo "Current environment proxy settings:"
+                echo "http_proxy: ${http_proxy:-Not set}"
+                echo "https_proxy: ${https_proxy:-Not set}"
+                
+                echo "Testing proxy connection..."
+                if [ -n "$PROXY_URL" ]; then
+                    curl -s -o /dev/null -w "Connection test result: %{http_code}\n" --proxy "$PROXY_URL" https://evmrpc-testnet.0g.ai
+                else
+                    echo "Cannot test connection: No proxy URL found in wrapper script."
+                fi
+            else
+                echo "Proxy is not configured for the second node."
+                echo "Current environment proxy settings:"
+                echo "http_proxy: ${http_proxy:-Not set}"
+                echo "https_proxy: ${https_proxy:-Not set}"
+                
+                if [ -n "$http_proxy" ]; then
+                    echo "Testing environment proxy connection..."
+                    curl -s -o /dev/null -w "Connection test result: %{http_code}\n" https://evmrpc-testnet.0g.ai
+                else
+                    echo "No proxy is configured to test."
+                fi
+            fi
             ;;
         9) 
             echo "Removing second node..."
