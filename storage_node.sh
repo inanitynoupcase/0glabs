@@ -388,7 +388,7 @@ EOF
         9) return ;;
         *) echo "Invalid option. Please try again." ;;
     esac
-
+}
 
 while true; do
     show_menu
