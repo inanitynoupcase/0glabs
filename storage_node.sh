@@ -285,9 +285,10 @@ manage_second_node() {
     echo "6. Set Miner Key for second node"
     echo "7. Configure proxy for second node"
     echo "8. Check proxy status"
-    echo "9. Back to main menu"
+    echo "9. Remove second node"
+    echo "10. Back to main menu"
     
-    read -p "Select an option (1-9): " second_node_choice
+    read -p "Select an option (1-10): " second_node_choice
     case $second_node_choice in
         1) 
             echo "Starting second node..."
@@ -385,7 +386,31 @@ EOF
             echo "Testing proxy connection..."
             curl -s -o /dev/null -w "Connection test result: %{http_code}\n" --proxy $http_proxy https://evmrpc-testnet.0g.ai
             ;;
-        9) return ;;
+        9) 
+            echo "Removing second node..."
+            echo "WARNING: This will completely remove the second node installation. Are you sure? (y/n)"
+            read confirm
+            if [[ "$confirm" == "y" ]]; then
+                # Stop the service
+                sudo systemctl stop zgs2
+                sudo systemctl disable zgs2
+                
+                # Remove systemd service
+                sudo rm -f /etc/systemd/system/zgs2.service
+                sudo systemctl daemon-reload
+                
+                # Remove proxy wrapper if exists
+                sudo rm -f /usr/local/bin/node2-proxy-wrapper.sh
+                
+                # Remove node directory
+                rm -rf $HOME/0g-storage-node2
+                
+                echo "Second node has been completely removed."
+            else
+                echo "Removal cancelled."
+            fi
+            ;;
+        10) return ;;
         *) echo "Invalid option. Please try again." ;;
     esac
 }
