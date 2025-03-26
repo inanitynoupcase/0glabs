@@ -275,26 +275,6 @@ EOF
     echo "Second node installation completed. You can start the service with 'sudo systemctl start zgs2'."
 }
 
-while true; do
-    show_menu
-    read -p "Select an option (1-11): " choice
-    case $choice in
-        1) install_node ;;
-        2) update_node ;;
-        3) reset_config_systemctl ;;
-        4) standard_mode_reset ;;
-        5) select_rpc ;;
-        6) set_miner_key ;;
-        7) show_logs ;;
-        8) install_snapshot ;;
-        9) install_second_node ;;
-        10) manage_second_node ;;
-        11) echo "Exiting..."; exit 0 ;;
-        *) echo "Invalid option. Please try again." ;;
-    esac
-    echo ""
-done
-
 manage_second_node() {
     echo "===== Second Node Management ====="
     echo "1. Start second node"
@@ -408,3 +388,24 @@ EOF
         9) return ;;
         *) echo "Invalid option. Please try again." ;;
     esac
+
+
+while true; do
+    show_menu
+    read -p "Select an option (1-11): " choice
+    case $choice in
+        1) install_node ;;
+        2) update_node ;;
+        3) reset_config_systemctl ;;
+        4) standard_mode_reset ;;
+        5) select_rpc ;;
+        6) set_miner_key ;;
+        7) show_logs ;;
+        8) install_snapshot ;;
+        9) install_second_node ;;
+        10) manage_second_node ;;
+        11) echo "Exiting..."; exit 0 ;;
+        *) echo "Invalid option. Please try again." ;;
+    esac
+    echo ""
+done
